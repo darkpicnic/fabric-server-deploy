@@ -1,6 +1,8 @@
 from fabric.api import *
 from fabric.contrib.files import *
 
+env.user = 'root'
+
 # Heavy lifting
 def build_server():
 	base_host_setup()
@@ -9,29 +11,43 @@ def build_server():
 	install_postgres()
 	install_nginx()
 
+	restart_nginx()
+
 def base_host_setup():
-	env.user = 'root'
 
 	# Create local sudoer user, then upgrade Ubuntu.
 	prompt('Specify new username: ', 'new_username')
 	prompt('Speciry new password: ', 'new_password')
-	prompt('Specify hostname: ', 'host_name')
+	prompt('Specify IP4: ', 'host')
+	prompt('Specify IP6: ', 'host_ip6', '')
+	prompt('Specify hostname (IE: name of server): ', 'host_name')
+	prompt('Specify company (used for FQDN): ', 'company_name', default="example")
+
+
+	# Host name
 	runcmd('echo %s > /etc/hostname && hostname -F /etc/hostname' % env.host_name)
+
+	# Update /etc/hosts
+	append('/etc/hosts', '{host}    {host_name}.{company_name}.com    {host_name}'.format(host=env.host, host_name=env.host_name, company_name=env.company_name), use_sudo=True)
+	if env.host_ip6 != '':
+		append('/etc/hosts', '{host_ip6}    {host_name}.{company_name}.com    {host_name}'.format(host_ip6=env.host_ip6, host_name=env.host_name, company_name=env.company_name), use_sudo=True) 
+
 	new_user(env.new_username, env.new_password)
 	upgrade_host()
 
 
 # Installs
 def install_fail2ban():
-	runcmd('sudo apt-get -y install fail2ban')
+	runcmd('apt-get -y install fail2ban')
 
 def install_git():
-	runcmd('sudo apt-get -y install git-core')
+	runcmd('apt-get -y install git-core')
 
 def install_postgres():
-	runcmd('sudo apt-get install -y postgresql postgresql-contrib')
+	runcmd('apt-get install -y postgresql postgresql-contrib')
 	# runcmd('su - postgres')
 	# runcmd('psql template1 < /usr/share/postgresql/*/contrib/adminpack.sql && exit')
+	# runcmd('exit')
 	
 	# # Set new password
 	# runcmd('passwd postgres')
@@ -73,9 +89,9 @@ def setup_security():
 
 def configure_firewall():
 	upload_template('.//iptables.firewall.rules.template', '/etc/iptables.firewall.rules', use_sudo=True)
-	runcmd('sudo iptables-restore < /etc/iptables.firewall.rules')
+	runcmd('iptables-restore < /etc/iptables.firewall.rules')
 	upload_template('.//firewall.template', '/etc/network/if-pre-up.d/firewall', use_sudo=True)
-	runcmd('sudo chmod +x /etc/network/if-pre-up.d/firewall')
+	runcmd('chmod +x /etc/network/if-pre-up.d/firewall')
 
 def upgrade_host():
 	runcmd('apt-get -y update && apt-get -y upgrade --show-upgraded')
@@ -107,13 +123,16 @@ def new_user(admin_username, admin_password):
 		password=admin_password))
 
 
+def restart_nginx():
+	runcmd('/etc/init.d/nginx restart')
+
 def setup_website(domain_name):
 	# Create folder in /var/www
 	if not exists('/var/www/'):
-		runcmd('sudo mkdir /var/www/')
+		runcmd('mkdir /var/www/')
 
 	if not exists('/var/www/{domain_name}/'.format(domain_name=domain_name)):
-		runcmd('sudo mkdir /var/www/{domain_name}/'.format(domain_name=domain_name))
+		runcmd('mkdir /var/www/{domain_name}/'.format(domain_name=domain_name))
 	
 	# TODO handle permissions
 
