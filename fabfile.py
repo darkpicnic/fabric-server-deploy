@@ -1,5 +1,6 @@
 from fabric.api import *
 from fabric.contrib.files import *
+from fabric.contrib.console import *
 
 env.user = 'root'
 
@@ -17,7 +18,7 @@ def base_host_setup():
 
 	# Create local sudoer user, then upgrade Ubuntu.
 	prompt('Specify new username: ', 'new_username')
-	prompt('Speciry new password: ', 'new_password')
+	prompt('Specify new password: ', 'new_password')
 	prompt('Specify IP4: ', 'host')
 	prompt('Specify IP6: ', 'host_ip6', '')
 	prompt('Specify hostname (IE: name of server): ', 'host_name')
@@ -138,31 +139,56 @@ def restart_nginx():
 	runcmd('/etc/init.d/nginx restart')
 
 def setup_website(domain_name, project_name):
+
 	# Create folder in /var/www
 	if not exists('/var/www/'):
 		runcmd('mkdir /var/www/')
 
+	if not exists('/var/www/public_html/'):
+		runcmd('mkdir /var/www/public_html/')
+
+	if confirm('Create virtualenv?', default=False):
+		if not exists('/var/www/.virtualenvs/'):
+			runcmd('mkdir /var/www/.virtualenvs/')
+		with cd('/var/www/.virtualenvs/'):
+			runcmd('virtualenv --distribute {domain_name}'.format(domain_name=domain_name))
+
+	# Add user for site
+	runcmd('adduser --no-create-home {project_name}'.format(project_name=project_name))
+
 	if not exists('/var/www/{domain_name}/'.format(domain_name=domain_name)):
 		runcmd('mkdir /var/www/{domain_name}/'.format(domain_name=domain_name))
-	
-	# TODO handle permissions
 
 	# Add nginx conf
-	upload_template('.//nginx.server.template', 
-				    '/opt/nginx/conf/sites-available/{domain_name}.conf'.format(domain_name=domain_name), 
-				    context={'domain' : domain_name}, 
-				    use_sudo=True)
+	if not exists('/opt/nginx/conf/sites-available/{domain_name}.conf'.format(domain_name=domain_name)):
+		upload_template('.//nginx.server.template', 
+					    '/opt/nginx/conf/sites-available/{domain_name}.conf'.format(domain_name=domain_name), 
+					    context={'domain' : domain_name}, 
+					    use_sudo=True)
 
 	# ln conf
-	runcmd('ln -s /opt/nginx/conf/sites-available/{domain_name}.conf /opt/nginx/conf/sites-enabled/{domain_name}.conf'.format(domain_name=domain_name))
+	if not exists('/opt/nginx/conf/sites-enabled/{domain_name}.conf'.format(domain_name=domain_name)):
+		runcmd('ln -s /opt/nginx/conf/sites-available/{domain_name}.conf /opt/nginx/conf/sites-enabled/{domain_name}.conf'.format(domain_name=domain_name))
 
 	if exists('/etc/supervisor/'):
-		if confirm('Add this to supervisor?', default=False):
-			# Add supervisor conf
-			upload_template('.//supervisor.conf.template', 
-						    '/etc/supervisor/conf.d/{domain_name}.conf'.format(domain_name=domain_name), 
-						    context={'domain' : domain_name, 'project' : project_name}, 
-						    use_sudo=True)
+		if not exists('/etc/supervisor/conf.d/{domain_name}.conf'.format(domain_name=domain_name)):
+			if confirm('Add this to supervisor?', default=False):
+
+				# Add supervisor conf
+				upload_template('.//supervisor.conf.template', 
+							    '/etc/supervisor/conf.d/{domain_name}.conf'.format(domain_name=domain_name), 
+							    context={'domain' : domain_name, 'project' : project_name}, 
+							    use_sudo=True)
+
+				# Add gunicorn.conf.py to project folder
+				upload_template('.//gunicorn.conf.py.template',
+							    '/var/www/{domain_name}/gunicorn.conf.py'.format(domain_name=domain_name),
+							    use_sudo=True)
+
+	# Modify ownership
+	runcmd('chown {project_name}:{project_name} -R /var/www/{domain_name}/'.format(project_name=project_name, domain_name=domain_name))
+
+
 
 def runcmd(arg):
 	if env.user != "root":
