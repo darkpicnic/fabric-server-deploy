@@ -1,0 +1,7 @@
+[program:%{domain}s]
+command=/var/www/%{domain}s/venv-%{domain}s/bin/gunicorn_django -c /var/www/%{domain}s/%{project}s/gunicorn.conf.prod.py --user=%{project}s --group=%{project}s
+directory=/var/www/%{domain}s/%{project}s
+user=%{project}s
+autostart=true
+autorestart=true
+redirect_stderr=True

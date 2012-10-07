@@ -9,9 +9,9 @@ def build_server():
 	setup_security()
 	install_git()
 	install_postgres()
+	install_redis()
 	install_nginx()
-
-	restart_nginx()
+	install_supervisor()
 
 def base_host_setup():
 
@@ -35,8 +35,19 @@ def base_host_setup():
 	new_user(env.new_username, env.new_password)
 	upgrade_host()
 
+	runcmd('apt-get -y install python-setuptools')
+	runcmd('easy_install pip')
+	runcmd('pip install virtualenv')
+
 
 # Installs
+def install_supervisor():
+	runcmd('sudo apt-get -y install supervisor')
+
+def install_redis():
+	runcmd('apt-get -y install redis-server')
+	runcmd('/etc/init.d/redis-server start')
+
 def install_fail2ban():
 	runcmd('apt-get -y install fail2ban')
 
@@ -126,7 +137,7 @@ def new_user(admin_username, admin_password):
 def restart_nginx():
 	runcmd('/etc/init.d/nginx restart')
 
-def setup_website(domain_name):
+def setup_website(domain_name, project_name):
 	# Create folder in /var/www
 	if not exists('/var/www/'):
 		runcmd('mkdir /var/www/')
@@ -145,6 +156,13 @@ def setup_website(domain_name):
 	# ln conf
 	runcmd('ln -s /opt/nginx/conf/sites-available/{domain_name}.conf /opt/nginx/conf/sites-enabled/{domain_name}.conf'.format(domain_name=domain_name))
 
+	if exists('/etc/supervisor/'):
+		if confirm('Add this to supervisor?', default=False):
+			# Add supervisor conf
+			upload_template('.//supervisor.conf.template', 
+						    '/etc/supervisor/conf.d/{domain_name}.conf'.format(domain_name=domain_name), 
+						    context={'domain' : domain_name, 'project' : project_name}, 
+						    use_sudo=True)
 
 def runcmd(arg):
 	if env.user != "root":
