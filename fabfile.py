@@ -4,6 +4,11 @@ from fabric.contrib.console import *
 
 env.user = 'root'
 
+# apt-get install libevent-dev
+# apt-get install python-all-dev
+# easy_install greenlet
+# easy_install gevent
+
 # Heavy lifting
 def build_server():
 	base_host_setup()
@@ -13,6 +18,8 @@ def build_server():
 	install_redis()
 	install_nginx()
 	install_supervisor()
+
+	restart_server()
 
 def base_host_setup():
 
@@ -56,6 +63,7 @@ def install_git():
 	runcmd('apt-get -y install git-core')
 
 def install_postgres():
+	runcmd('apt-get install -y libpq-dev python-dev') # Necessary for psycopg2 to work
 	runcmd('apt-get install -y postgresql postgresql-contrib')
 	# runcmd('su - postgres')
 	# runcmd('psql template1 < /usr/share/postgresql/*/contrib/adminpack.sql && exit')
@@ -135,6 +143,9 @@ def new_user(admin_username, admin_password):
 		password=admin_password))
 
 
+def restart_server():
+	runcmd('shutdown -r now')
+
 def restart_nginx():
 	runcmd('/etc/init.d/nginx restart')
 
@@ -153,8 +164,11 @@ def setup_website(domain_name, project_name):
 		with cd('/var/www/.virtualenvs/'):
 			runcmd('virtualenv --distribute {domain_name}'.format(domain_name=domain_name))
 
+		runcmd('chown {project_name}:{project_name} -R /var/www/.virtualenvs/{domain_name}/'.format(project_name=project_name, domain_name=domain_name))
+
 	# Add user for site
 	runcmd('adduser --no-create-home {project_name}'.format(project_name=project_name))
+	runcmd('echo "%{project_name} ALL=(ALL) ALL" >> /etc/sudoers'.format(project_name=project_name))
 
 	if not exists('/var/www/{domain_name}/'.format(domain_name=domain_name)):
 		runcmd('mkdir /var/www/{domain_name}/'.format(domain_name=domain_name))
@@ -185,8 +199,16 @@ def setup_website(domain_name, project_name):
 							    '/var/www/{domain_name}/gunicorn.conf.py'.format(domain_name=domain_name),
 							    use_sudo=True)
 
+	# Add media area
+	if not exists('/var/www/public_html/{domain_name}/'.format(domain_name=domain_name)):
+		runcmd('mkdir /var/www/public_html/{domain_name}/'.format(domain_name=domain_name))
+		runcmd('mkdir /var/www/public_html/{domain_name}/static/'.format(domain_name=domain_name))
+		runcmd('mkdir /var/www/public_html/{domain_name}/media/'.format(domain_name=domain_name))
+		runcmd('chown {project_name}:{project_name} -R /var/www/public_html/{domain_name}/'.format(project_name=project_name, domain_name=domain_name))
+
 	# Modify ownership
 	runcmd('chown {project_name}:{project_name} -R /var/www/{domain_name}/'.format(project_name=project_name, domain_name=domain_name))
+
 
 
 
