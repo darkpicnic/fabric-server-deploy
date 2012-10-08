@@ -49,12 +49,48 @@ def base_host_setup():
 
 
 # Installs
+
 def install_supervisor():
 	runcmd('sudo apt-get -y install supervisor')
 
-def install_redis():
-	runcmd('apt-get -y install redis-server')
-	runcmd('/etc/init.d/redis-server start')
+def install_redis(ver='2.4.17'):
+	runcmd('apt-get install -y build-essential')
+	with cd('/opt/'):
+		runcmd('mkdir redis')
+		runcmd('wget http://redis.googlecode.com/files/redis-{ver}.tar.gz'.format(ver=ver))
+		runcmd('tar -zxvf /opt/redis-{ver}.tar.gz'.format(ver=ver))
+	with cd('/opt/redis-*'):
+		runcmd('make')
+	runcmd('cp /opt/redis-*/redis.conf /opt/redis/redis.conf.default')
+	runcmd('cp /opt/redis-*/src/redis-benchmark /opt/redis/')
+	runcmd('cp /opt/redis-*/src/redis-cli /opt/redis/')
+	runcmd('cp /opt/redis-*/src/redis-server /opt/redis/')
+	runcmd('cp /opt/redis-*/src/redis-check-aof /opt/redis/')
+	runcmd('cp /opt/redis-*/src/redis-check-dump /opt/redis/')
+
+	runcmd('cp /opt/redis/redis.conf.default /opt/redis/redis.conf')
+
+	with cd('/opt/'):
+		runcmd('wget -O init-deb.sh http://library.linode.com/assets/629-redis-init-deb.sh')
+		with settings(warn_only=True):
+			runcmd('adduser --system --no-create-home --disabled-login --disabled-password --group redis')
+		runcmd('mv /opt/init-deb.sh /etc/init.d/redis')
+		runcmd('chmod +x /etc/init.d/redis')
+		runcmd('chown -R redis:redis /opt/redis')
+		runcmd('touch /var/log/redis.log')
+		runcmd('chown redis:redis /var/log/redis.log')
+		runcmd('update-rc.d -f redis defaults')
+
+	sed('/opt/redis/redis.conf', 'daemonize no', 'daemonize yes', use_sudo=True)
+	sed('/opt/redis/redis.conf', 'timeout 0', 'timeout 300', use_sudo=True)
+	sed('/opt/redis/redis.conf', 'loglevel verbose', 'loglevel notice', use_sudo=True)
+	sed('/opt/redis/redis.conf', 'dir ./', 'dir /opt/redis/', use_sudo=True)
+	sed('/opt/redis/redis.conf', 'appendonly no', 'appendonly yes', use_sudo=True)
+
+	with settings(warn_only=True):
+		runcmd('/etc/init.d/redis stop')
+	runcmd('/etc/init.d/redis start')
+	
 
 def install_fail2ban():
 	runcmd('apt-get -y install fail2ban')
@@ -65,12 +101,14 @@ def install_git():
 def install_postgres():
 	runcmd('apt-get install -y libpq-dev python-dev') # Necessary for psycopg2 to work
 	runcmd('apt-get install -y postgresql postgresql-contrib')
-	# runcmd('su - postgres')
-	# runcmd('psql template1 < /usr/share/postgresql/*/contrib/adminpack.sql && exit')
-	# runcmd('exit')
+	sudo('psql template1 < /usr/share/postgresql/*/contrib/adminpack.sql', user='postgres')
 	
-	# # Set new password
-	# runcmd('passwd postgres')
+	sed('/etc/postgresql/*/main/pg_hba.conf', 
+		'local   all         all                               ident',
+		'local   all         all                               md5',
+		use_sudo=True)
+
+	runcmd('/etc/init.d/postgresql-* restart')
 
 
 def install_nginx():
@@ -116,9 +154,20 @@ def configure_firewall():
 def upgrade_host():
 	runcmd('apt-get -y update && apt-get -y upgrade --show-upgraded')
 
+def create_db_user(db_user):
+	"""
+	Postgres
+	"""
+	with settings(warn_only=True):
+		sudo('createuser -d -P {db_user}'.format(db_user=db_user), user='postgres')
 
-def create_db(db_name, root_user, root_password, new_user, new_user_password):
-	pass
+def create_db(db_name, db_user):
+	"""
+	Postgres
+	"""
+	create_db_user(db_user)
+	with settings(warn_only=True):
+		sudo('createdb -O {db_user} {db_name}'.format(db_name=db_name, db_user=db_user), user='postgres')
 
 def new_user(admin_username, admin_password):
 	env.user='root'
@@ -158,6 +207,11 @@ def setup_website(domain_name, project_name):
 	if not exists('/var/www/public_html/'):
 		runcmd('mkdir /var/www/public_html/')
 
+	# Add user for site
+	with settings(warn_only=True):
+		runcmd('adduser --no-create-home {project_name}'.format(project_name=project_name))
+	runcmd('echo "%{project_name} ALL=(ALL) ALL" >> /etc/sudoers'.format(project_name=project_name))
+
 	if confirm('Create virtualenv?', default=False):
 		if not exists('/var/www/.virtualenvs/'):
 			runcmd('mkdir /var/www/.virtualenvs/')
@@ -165,10 +219,6 @@ def setup_website(domain_name, project_name):
 			runcmd('virtualenv --distribute {domain_name}'.format(domain_name=domain_name))
 
 		runcmd('chown {project_name}:{project_name} -R /var/www/.virtualenvs/{domain_name}/'.format(project_name=project_name, domain_name=domain_name))
-
-	# Add user for site
-	runcmd('adduser --no-create-home {project_name}'.format(project_name=project_name))
-	runcmd('echo "%{project_name} ALL=(ALL) ALL" >> /etc/sudoers'.format(project_name=project_name))
 
 	if not exists('/var/www/{domain_name}/'.format(domain_name=domain_name)):
 		runcmd('mkdir /var/www/{domain_name}/'.format(domain_name=domain_name))
