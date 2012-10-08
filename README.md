@@ -1,4 +1,5 @@
-fabric-server-deploy
+Deploy web/db server with Fabric
+## Based off of Linode 512 slice with Ubuntu 10.04
 ====================
 
 A buildout for a web/db server with nginx, fail2ban, firewall and postgres. Still needs some tweaking to handle more options, like MySQL and Mongo.
