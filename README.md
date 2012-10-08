@@ -23,3 +23,5 @@ Running `fab setup_website:domain,project` will:
 * Add program to supervisor
 * Create media/static folders in /var/www/public_html/
 * Set permissions
+
+Based off of: https://github.com/btompkins/CodeBetter.Com-Fabric
