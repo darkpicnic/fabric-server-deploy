@@ -53,43 +53,45 @@ def base_host_setup():
 def install_supervisor():
 	runcmd('sudo apt-get -y install supervisor')
 
-def install_redis(ver='2.4.17'):
-	runcmd('apt-get install -y build-essential')
-	with cd('/opt/'):
-		runcmd('mkdir redis')
-		runcmd('wget http://redis.googlecode.com/files/redis-{ver}.tar.gz'.format(ver=ver))
-		runcmd('tar -zxvf /opt/redis-{ver}.tar.gz'.format(ver=ver))
-	with cd('/opt/redis-*'):
-		runcmd('make')
-	runcmd('cp /opt/redis-*/redis.conf /opt/redis/redis.conf.default')
-	runcmd('cp /opt/redis-*/src/redis-benchmark /opt/redis/')
-	runcmd('cp /opt/redis-*/src/redis-cli /opt/redis/')
-	runcmd('cp /opt/redis-*/src/redis-server /opt/redis/')
-	runcmd('cp /opt/redis-*/src/redis-check-aof /opt/redis/')
-	runcmd('cp /opt/redis-*/src/redis-check-dump /opt/redis/')
+def install_redis():
+	runcmd('add-apt-repository ppa:rwky/redis')
+	runcmd('apt-get update & apt-get -y install redis-server')
+	# runcmd('apt-get install -y build-essential')
+	# with cd('/opt/'):
+	# 	runcmd('mkdir redis')
+	# 	runcmd('wget http://redis.googlecode.com/files/redis-{ver}.tar.gz'.format(ver=ver))
+	# 	runcmd('tar -zxvf /opt/redis-{ver}.tar.gz'.format(ver=ver))
+	# with cd('/opt/redis-*'):
+	# 	runcmd('make')
+	# runcmd('cp /opt/redis-*/redis.conf /opt/redis/redis.conf.default')
+	# runcmd('cp /opt/redis-*/src/redis-benchmark /opt/redis/')
+	# runcmd('cp /opt/redis-*/src/redis-cli /opt/redis/')
+	# runcmd('cp /opt/redis-*/src/redis-server /opt/redis/')
+	# runcmd('cp /opt/redis-*/src/redis-check-aof /opt/redis/')
+	# runcmd('cp /opt/redis-*/src/redis-check-dump /opt/redis/')
 
-	runcmd('cp /opt/redis/redis.conf.default /opt/redis/redis.conf')
+	# runcmd('cp /opt/redis/redis.conf.default /opt/redis/redis.conf')
 
-	with cd('/opt/'):
-		runcmd('wget -O init-deb.sh http://library.linode.com/assets/629-redis-init-deb.sh')
-		with settings(warn_only=True):
-			runcmd('adduser --system --no-create-home --disabled-login --disabled-password --group redis')
-		runcmd('mv /opt/init-deb.sh /etc/init.d/redis')
-		runcmd('chmod +x /etc/init.d/redis')
-		runcmd('chown -R redis:redis /opt/redis')
-		runcmd('touch /var/log/redis.log')
-		runcmd('chown redis:redis /var/log/redis.log')
-		runcmd('update-rc.d -f redis defaults')
+	# with cd('/opt/'):
+	# 	runcmd('wget -O init-deb.sh http://library.linode.com/assets/629-redis-init-deb.sh')
+	# 	with settings(warn_only=True):
+	# 		runcmd('adduser --system --no-create-home --disabled-login --disabled-password --group redis')
+	# 	runcmd('mv /opt/init-deb.sh /etc/init.d/redis')
+	# 	runcmd('chmod +x /etc/init.d/redis')
+	# 	runcmd('chown -R redis:redis /opt/redis')
+	# 	runcmd('touch /var/log/redis.log')
+	# 	runcmd('chown redis:redis /var/log/redis.log')
+	# 	runcmd('update-rc.d -f redis defaults')
 
-	sed('/opt/redis/redis.conf', 'daemonize no', 'daemonize yes', use_sudo=True)
-	sed('/opt/redis/redis.conf', 'timeout 0', 'timeout 300', use_sudo=True)
-	sed('/opt/redis/redis.conf', 'loglevel verbose', 'loglevel notice', use_sudo=True)
-	sed('/opt/redis/redis.conf', 'dir ./', 'dir /opt/redis/', use_sudo=True)
-	sed('/opt/redis/redis.conf', 'appendonly no', 'appendonly yes', use_sudo=True)
+	# sed('/opt/redis/redis.conf', 'daemonize no', 'daemonize yes', use_sudo=True)
+	# sed('/opt/redis/redis.conf', 'timeout 0', 'timeout 300', use_sudo=True)
+	# sed('/opt/redis/redis.conf', 'loglevel verbose', 'loglevel notice', use_sudo=True)
+	# sed('/opt/redis/redis.conf', 'dir ./', 'dir /opt/redis/', use_sudo=True)
+	# sed('/opt/redis/redis.conf', 'appendonly no', 'appendonly yes', use_sudo=True)
 
-	with settings(warn_only=True):
-		runcmd('/etc/init.d/redis stop')
-	runcmd('/etc/init.d/redis start')
+	# with settings(warn_only=True):
+	# 	runcmd('/etc/init.d/redis stop')
+	# runcmd('/etc/init.d/redis start')
 	
 
 def install_fail2ban():
@@ -114,30 +116,36 @@ def install_postgres():
 def install_nginx():
 	# TODO: Clean up old nginx if installed
 	# TODO: Add optional 3rd party paramaters
-	runcmd('apt-get install -y libpcre3-dev build-essential libssl-dev')
-	with cd('/opt/'):
-		runcmd('wget http://nginx.org/download/nginx-1.2.4.tar.gz')
-		runcmd('tar -zxvf nginx*')
+	# runcmd('apt-get install -y libpcre3-dev build-essential libssl-dev')
+	runcmd('apt-get install -y python-software-properties')
+	runcmd('add-apt-repository ppa:nginx/stable && apt-get update')
+	runcmd('apt-get install -y nginx')	
+
+
+
+	# with cd('/opt/'):
+	# 	runcmd('wget http://nginx.org/download/nginx-1.2.4.tar.gz')
+	# 	runcmd('tar -zxvf nginx*')
 	
-	with cd('/opt/nginx*/'):
-		runcmd('./configure --prefix=/opt/nginx --user=nginx --group=nginx --with-http_ssl_module')
-		runcmd('make && make install')
+	# with cd('/opt/nginx*/'):
+	# 	runcmd('./configure --prefix=/opt/nginx --user=nginx --group=nginx --with-http_ssl_module')
+	# 	runcmd('make && make install')
 
-	runcmd('adduser --system --no-create-home --disabled-login --disabled-password --group nginx')
+	# runcmd('adduser --system --no-create-home --disabled-login --disabled-password --group nginx')
 	
-	runcmd('wget -O init-deb.sh http://library.linode.com/assets/660-init-deb.sh')
-	runcmd('mv init-deb.sh /etc/init.d/nginx')
-	runcmd('chmod +x /etc/init.d/nginx')
-	runcmd('/usr/sbin/update-rc.d -f nginx defaults')
+	# runcmd('wget -O init-deb.sh http://library.linode.com/assets/660-init-deb.sh')
+	# runcmd('mv init-deb.sh /etc/init.d/nginx')
+	# runcmd('chmod +x /etc/init.d/nginx')
+	# runcmd('/usr/sbin/update-rc.d -f nginx defaults')
 
-	if not exists('/opt/nginx/conf/sites-available/'):
-		runcmd('mkdir /opt/nginx/conf/sites-available/')
+	# if not exists('/opt/nginx/conf/sites-available/'):
+	# 	runcmd('mkdir /opt/nginx/conf/sites-available/')
 
-	if not exists('/opt/nginx/conf/sites-enabled/'):
-		runcmd('mkdir /opt/nginx/conf/sites-enabled/')
+	# if not exists('/opt/nginx/conf/sites-enabled/'):
+	# 	runcmd('mkdir /opt/nginx/conf/sites-enabled/')
 
-	runcmd('rm /opt/nginx/conf/nginx.conf')
-	upload_template('.//nginx.conf.template', '/opt/nginx/conf/nginx.conf', use_sudo=True)
+	# runcmd('rm /opt/nginx/conf/nginx.conf')
+	# upload_template('.//nginx.conf.template', '/opt/nginx/conf/nginx.conf', use_sudo=True)
 
 
 # Tools
@@ -224,15 +232,15 @@ def setup_website(domain_name, project_name):
 		runcmd('mkdir /var/www/{domain_name}/'.format(domain_name=domain_name))
 
 	# Add nginx conf
-	if not exists('/opt/nginx/conf/sites-available/{domain_name}.conf'.format(domain_name=domain_name)):
+	if not exists('/etc/nginx/sites-available/{domain_name}.conf'.format(domain_name=domain_name)):
 		upload_template('.//nginx.server.template', 
-					    '/opt/nginx/conf/sites-available/{domain_name}.conf'.format(domain_name=domain_name), 
+					    '/etc/nginx/sites-available/{domain_name}.conf'.format(domain_name=domain_name), 
 					    context={'domain' : domain_name}, 
 					    use_sudo=True)
 
 	# ln conf
-	if not exists('/opt/nginx/conf/sites-enabled/{domain_name}.conf'.format(domain_name=domain_name)):
-		runcmd('ln -s /opt/nginx/conf/sites-available/{domain_name}.conf /opt/nginx/conf/sites-enabled/{domain_name}.conf'.format(domain_name=domain_name))
+	if not exists('/etc/nginx/sites-enabled/{domain_name}.conf'.format(domain_name=domain_name)):
+		runcmd('ln -s /etc/nginx/sites-available/{domain_name}.conf /etc/nginx/sites-enabled/{domain_name}.conf'.format(domain_name=domain_name))
 
 	if exists('/etc/supervisor/'):
 		if not exists('/etc/supervisor/conf.d/{domain_name}.conf'.format(domain_name=domain_name)):
