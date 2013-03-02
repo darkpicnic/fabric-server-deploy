@@ -54,6 +54,7 @@ def install_supervisor():
 	runcmd('sudo apt-get -y install supervisor')
 
 def install_redis():
+	runcmd('apt-get install -y python-software-properties')
 	runcmd('add-apt-repository ppa:rwky/redis')
 	runcmd('apt-get update & apt-get -y install redis-server')
 	
@@ -82,7 +83,9 @@ def install_nginx():
 	# TODO: Add optional 3rd party paramaters
 	runcmd('apt-get install -y python-software-properties')
 	runcmd('add-apt-repository ppa:nginx/stable && apt-get update')
-	runcmd('apt-get install -y nginx')	
+	runcmd('apt-get install -y nginx')
+
+	# Delete default in sites-available
 
 	runcmd('rm /etc/nginx/nginx.conf')
 	upload_template('.//nginx.conf.template', '/etc/nginx/nginx.conf', use_sudo=True)
